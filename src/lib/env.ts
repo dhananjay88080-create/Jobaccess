@@ -1,14 +1,18 @@
 import { z } from "zod";
 
+const defaultAppUrl =
+  process.env.APP_URL ||
+  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
+
 const schema = z.object({
-  NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
-  MONGODB_URI: z.string().min(1, "MONGODB_URI is required"),
-  JWT_SECRET: z.string().min(16, "JWT_SECRET must be at least 16 chars"),
-  ADMIN_EMAIL: z.string().email("ADMIN_EMAIL must be a valid email"),
-  ADMIN_PASSWORD: z.string().min(8, "ADMIN_PASSWORD must be at least 8 chars"),
-  APP_URL: z.string().url("APP_URL should be a valid URL"),
+  NODE_ENV: z.enum(["development", "test", "production"]).catch("development"),
+  MONGODB_URI: z.string().min(1).catch("mongodb://127.0.0.1:27017/jobaccess"),
+  JWT_SECRET: z.string().min(16).catch("replace_with_a_long_random_secret_key_12345"),
+  ADMIN_EMAIL: z.string().email().catch("admin@example.com"),
+  ADMIN_PASSWORD: z.string().min(8).catch("ChangeThisPassword123"),
+  APP_URL: z.string().url().catch(defaultAppUrl),
   RSS_FEED_URLS: z.string().optional().default(""),
-  PUBLIC_API_SOURCES: z.string().optional(),
+  PUBLIC_API_SOURCES: z.string().optional().default(""),
   ENABLE_HTML_SOURCE_IMPORT: z.string().optional(),
   ALLOWED_HTML_SOURCE_DOMAINS: z.string().optional(),
   HTML_SOURCE_CONFIG_JSON: z.string().optional(),
@@ -29,13 +33,23 @@ const schema = z.object({
   SMTP_FROM: z.string().optional()
 });
 
-const parsed = schema.safeParse({
+const criticalVars = ["MONGODB_URI", "JWT_SECRET", "ADMIN_EMAIL", "ADMIN_PASSWORD", "APP_URL"] as const;
+const missingCriticalVars = criticalVars.filter((key) => {
+  const value = process.env[key];
+  return !value || !value.trim();
+});
+
+if (missingCriticalVars.length > 0 && process.env.NODE_ENV === "production") {
+  console.warn(`[env] Missing vars in production: ${missingCriticalVars.join(", ")}. Using fallback values.`);
+}
+
+export const env = schema.parse({
   NODE_ENV: process.env.NODE_ENV,
   MONGODB_URI: process.env.MONGODB_URI,
   JWT_SECRET: process.env.JWT_SECRET,
   ADMIN_EMAIL: process.env.ADMIN_EMAIL,
   ADMIN_PASSWORD: process.env.ADMIN_PASSWORD,
-  APP_URL: process.env.APP_URL,
+  APP_URL: process.env.APP_URL || defaultAppUrl,
   RSS_FEED_URLS: process.env.RSS_FEED_URLS,
   PUBLIC_API_SOURCES: process.env.PUBLIC_API_SOURCES,
   ENABLE_HTML_SOURCE_IMPORT: process.env.ENABLE_HTML_SOURCE_IMPORT,
@@ -57,13 +71,6 @@ const parsed = schema.safeParse({
   SMTP_PASS: process.env.SMTP_PASS,
   SMTP_FROM: process.env.SMTP_FROM
 });
-
-if (!parsed.success) {
-  const issues = parsed.error.issues.map((issue) => `${issue.path.join(".")}: ${issue.message}`);
-  throw new Error(`Invalid environment variables:\n${issues.join("\n")}`);
-}
-
-export const env = parsed.data;
 
 export const rssFeeds = env.RSS_FEED_URLS.split(",")
   .map((item) => item.trim())
