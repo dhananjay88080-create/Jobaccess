@@ -10,7 +10,6 @@ export default function PrivacyPolicyPage() {
   return (
     <ContentPage title="Privacy Policy" description="Effective Date: April 8, 2026">
       <div className="space-y-4 text-sm leading-relaxed">
-
         <p>
           Your privacy is important to us. This Privacy Policy explains how we collect, use, and protect your information when you use JobAccess.
         </p>
@@ -39,12 +38,11 @@ export default function PrivacyPolicyPage() {
 
         <h2 className="font-semibold text-base">5. Google AdSense</h2>
         <p>
-          Third-party vendors, including Google, use cookies to serve ads based on a user's prior visits to this website or other websites. Google’s use
-          of advertising cookies enables it and its partners to serve ads to users based on their visit to this site and/or other sites on the Internet.
+          Third-party vendors, including Google, use cookies to serve ads based on a user&apos;s prior visits to this website or other websites.
+          Google&apos;s use of advertising cookies enables it and its partners to serve ads to users based on their visit to this site and/or other
+          sites on the Internet.
         </p>
-        <p>
-          Users may opt out of personalized advertising by visiting Google Ads Settings.
-        </p>
+        <p>Users may opt out of personalized advertising by visiting Google Ads Settings.</p>
 
         <h2 className="font-semibold text-base">6. Data Protection</h2>
         <p>
@@ -57,27 +55,20 @@ export default function PrivacyPolicyPage() {
           You have the right to request access, correction, or deletion of your personal data. You may also unsubscribe from job alerts at any time.
         </p>
 
-        <h2 className="font-semibold text-base">8. Children's Information</h2>
-        <p>
-          We do not knowingly collect any personal information from children under the age of 13.
-        </p>
+        <h2 className="font-semibold text-base">8. Children&apos;s Information</h2>
+        <p>We do not knowingly collect any personal information from children under the age of 13.</p>
 
         <h2 className="font-semibold text-base">9. Consent</h2>
-        <p>
-          By using our website, you hereby consent to our Privacy Policy and agree to its terms.
-        </p>
+        <p>By using our website, you hereby consent to our Privacy Policy and agree to its terms.</p>
 
         <h2 className="font-semibold text-base">10. Updates</h2>
-        <p>
-          We may update this Privacy Policy from time to time. Any changes will be posted on this page.
-        </p>
+        <p>We may update this Privacy Policy from time to time. Any changes will be posted on this page.</p>
 
         <h2 className="font-semibold text-base">11. Contact Us</h2>
         <p>
           If you have any questions regarding this policy, you can contact us at: <br />
           <strong>Email:</strong> your@email.com
         </p>
-
       </div>
     </ContentPage>
   );

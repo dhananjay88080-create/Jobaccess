@@ -10,13 +10,20 @@ interface AdSlotProps {
   format?: "auto" | "rectangle" | "horizontal";
 }
 
+declare global {
+  interface Window {
+    adsbygoogle?: Array<Record<string, unknown>>;
+  }
+}
+
 export function AdSlot({ slot, className, format = "auto" }: AdSlotProps) {
   useEffect(() => {
     if (!slot || !hasAdSenseConfig()) return;
 
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ((window as any).adsbygoogle = (window as any).adsbygoogle || []).push({});
+      const adsQueue = window.adsbygoogle || [];
+      adsQueue.push({});
+      window.adsbygoogle = adsQueue;
     } catch {
       // Ignore ad rendering errors in development.
     }
