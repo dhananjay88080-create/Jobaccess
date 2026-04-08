@@ -15,6 +15,45 @@ interface ImportSummary {
   errors: Array<{ source: string; reason: string }>;
 }
 
+function parseDateCandidate(value: string) {
+  const raw = value.trim().replace(/,/g, "");
+  const dmy = raw.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})$/);
+  if (dmy) {
+    const day = Number(dmy[1]);
+    const month = Number(dmy[2]);
+    const yearRaw = Number(dmy[3]);
+    const year = yearRaw < 100 ? 2000 + yearRaw : yearRaw;
+    const parsed = new Date(Date.UTC(year, month - 1, day));
+    if (!Number.isNaN(parsed.getTime())) return parsed;
+  }
+
+  const parsed = new Date(raw);
+  if (!Number.isNaN(parsed.getTime())) return parsed;
+  return undefined;
+}
+
+function extractLastDateFromText(text: string) {
+  const normalized = text
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  const patterns = [
+    /(last date|last date to apply|closing date|apply by|apply before)\s*[:\-]?\s*([0-3]?\d[./-][0-1]?\d[./-]\d{2,4})/i,
+    /(last date|last date to apply|closing date|apply by|apply before)\s*[:\-]?\s*([0-3]?\d\s+[a-z]{3,9}\s+\d{4})/i,
+    /(last date|last date to apply|closing date|apply by|apply before)\s*[:\-]?\s*([a-z]{3,9}\s+[0-3]?\d\s+\d{4})/i
+  ];
+
+  for (const pattern of patterns) {
+    const match = normalized.match(pattern);
+    if (!match?.[2]) continue;
+    const parsed = parseDateCandidate(match[2]);
+    if (parsed) return parsed;
+  }
+
+  return undefined;
+}
+
 function inferCategory(title: string) {
   const lower = title.toLowerCase();
   if (lower.includes("railway")) return "Railway";
@@ -80,6 +119,7 @@ export async function importJobsFromRSSFeeds(): Promise<ImportSummary> {
         const description = sanitizeText(descriptionRaw || title);
         const publishedAt = item.pubDate ? new Date(item.pubDate) : undefined;
         const jobType = inferJobTypeFromText(title, description);
+        const lastDate = extractLastDateFromText(`${title} ${descriptionRaw}`);
 
         const { created } = await createJob({
           title,
@@ -89,6 +129,7 @@ export async function importJobsFromRSSFeeds(): Promise<ImportSummary> {
           jobType,
           state: inferState(title),
           qualification: inferQualification(title),
+          lastDate,
           applyLink,
           source: source.name,
           sourceType: "rss",

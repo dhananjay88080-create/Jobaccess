@@ -43,6 +43,16 @@ export default async function JobDetailPage({ params }: JobPageProps) {
   if (!job) {
     notFound();
   }
+  const parsedLastDate = job.lastDate ? new Date(job.lastDate) : null;
+  const hasValidLastDate = Boolean(parsedLastDate && !Number.isNaN(parsedLastDate.getTime()));
+  const parsedPublishedAt = job.publishedAt ? new Date(job.publishedAt) : null;
+  const hasValidPublishedAt = Boolean(parsedPublishedAt && !Number.isNaN(parsedPublishedAt.getTime()));
+  const lastDateText =
+    hasValidLastDate && parsedLastDate
+      ? format(parsedLastDate, "dd MMM yyyy")
+      : job.jobType === "government" && hasValidPublishedAt && parsedPublishedAt
+        ? `Check official notice (posted ${format(parsedPublishedAt, "dd MMM yyyy")})`
+        : "Not specified";
   const salary = formatSalaryRange(job.salaryMin, job.salaryMax, job.salaryCurrency || "INR");
 
   return (
@@ -74,8 +84,7 @@ export default async function JobDetailPage({ params }: JobPageProps) {
               <GraduationCap className="h-4 w-4 text-primary" /> {job.qualification}
             </p>
             <p className="flex items-center gap-2">
-              <CalendarClock className="h-4 w-4 text-primary" /> Last Date:{" "}
-              {job.lastDate ? format(new Date(job.lastDate), "dd MMM yyyy") : "Not specified"}
+              <CalendarClock className="h-4 w-4 text-primary" /> Last Date: {lastDateText}
             </p>
             <p className="flex items-center gap-2">
               <IndianRupee className="h-4 w-4 text-primary" /> Salary: {salary}

@@ -18,6 +18,7 @@ interface JobCardProps {
     qualification: string;
     state: string;
     lastDate?: Date | string;
+    rssRawPublishedAt?: Date | string;
     salaryMin?: number;
     salaryMax?: number;
     salaryCurrency?: string;
@@ -26,8 +27,17 @@ interface JobCardProps {
 }
 
 export function JobCard({ job }: JobCardProps) {
-  const lastDate = job.lastDate ? format(new Date(job.lastDate), "dd MMM yyyy") : "Not specified";
-  const publishedAt = job.publishedAt ? format(new Date(job.publishedAt), "dd MMM yyyy") : null;
+  const parsedLastDate = job.lastDate ? new Date(job.lastDate) : null;
+  const hasValidLastDate = Boolean(parsedLastDate && !Number.isNaN(parsedLastDate.getTime()));
+  const parsedPublishedAt = job.publishedAt ? new Date(job.publishedAt) : null;
+  const hasValidPublishedAt = Boolean(parsedPublishedAt && !Number.isNaN(parsedPublishedAt.getTime()));
+
+  const publishedAt = hasValidPublishedAt && parsedPublishedAt ? format(parsedPublishedAt, "dd MMM yyyy") : null;
+  const lastDate = hasValidLastDate && parsedLastDate
+    ? format(parsedLastDate, "dd MMM yyyy")
+    : job.jobType === "government" && publishedAt
+      ? `Check official notice (posted ${publishedAt})`
+      : "Not specified";
   const salary = formatSalaryRange(job.salaryMin, job.salaryMax, job.salaryCurrency || "INR");
 
   return (
