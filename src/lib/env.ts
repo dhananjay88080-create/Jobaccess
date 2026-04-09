@@ -12,6 +12,7 @@ const schema = z.object({
   ADMIN_PASSWORD: z.string().min(8).catch("ChangeThisPassword123"),
   APP_URL: z.string().url().catch(defaultAppUrl),
   RSS_FEED_URLS: z.string().optional().default(""),
+  CONTENT_RSS_FEED_URLS: z.string().optional().default(""),
   PUBLIC_API_SOURCES: z.string().optional().default(""),
   ENABLE_HTML_SOURCE_IMPORT: z.string().optional(),
   ALLOWED_HTML_SOURCE_DOMAINS: z.string().optional(),
@@ -51,6 +52,7 @@ export const env = schema.parse({
   ADMIN_PASSWORD: process.env.ADMIN_PASSWORD,
   APP_URL: process.env.APP_URL || defaultAppUrl,
   RSS_FEED_URLS: process.env.RSS_FEED_URLS,
+  CONTENT_RSS_FEED_URLS: process.env.CONTENT_RSS_FEED_URLS,
   PUBLIC_API_SOURCES: process.env.PUBLIC_API_SOURCES,
   ENABLE_HTML_SOURCE_IMPORT: process.env.ENABLE_HTML_SOURCE_IMPORT,
   ALLOWED_HTML_SOURCE_DOMAINS: process.env.ALLOWED_HTML_SOURCE_DOMAINS,
@@ -73,5 +75,9 @@ export const env = schema.parse({
 });
 
 export const rssFeeds = env.RSS_FEED_URLS.split(",")
+  .map((item) => item.trim())
+  .filter(Boolean);
+
+export const contentRssFeeds = env.CONTENT_RSS_FEED_URLS.split(",")
   .map((item) => item.trim())
   .filter(Boolean);

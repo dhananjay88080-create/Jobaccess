@@ -100,11 +100,17 @@ export const emailSubscriptionSchema = z.object({
 export const addBlogSchema = z.object({
   title: z.string().trim().min(6).max(180),
   content: z.string().trim().min(30).max(20000),
-  excerpt: z.string().trim().max(500).optional()
+  excerpt: z.string().trim().max(500).optional(),
+  sourceType: z.enum(["manual", "rss", "api"]).default("manual"),
+  source: z.string().trim().min(2).max(120).default("Manual Entry"),
+  status: z.enum(["pending", "published"]).default("pending")
 });
 
 export const updateBlogSchema = addBlogSchema
   .partial()
+  .extend({
+    status: z.enum(["pending", "published", "rejected"]).optional()
+  })
   .superRefine((value, ctx) => {
     if (Object.keys(value).length === 0) {
       ctx.addIssue({
@@ -113,3 +119,7 @@ export const updateBlogSchema = addBlogSchema
       });
     }
   });
+
+export const blogsQuerySchema = z.object({
+  status: z.enum(["pending", "published", "rejected"]).optional()
+});

@@ -66,9 +66,11 @@ export function JobCard({ job }: JobCardProps) {
         <p className="flex items-center gap-2 text-sm text-muted-foreground">
           <CalendarClock className="h-4 w-4 text-primary" /> Last Date: {lastDate}
         </p>
-        <p className="flex items-center gap-2 text-sm text-muted-foreground">
-          <IndianRupee className="h-4 w-4 text-primary" /> Salary: {salary}
-        </p>
+        {job.jobType === "private" ? (
+          <p className="flex items-center gap-2 text-sm text-muted-foreground">
+            <IndianRupee className="h-4 w-4 text-primary" /> Salary: {salary}
+          </p>
+        ) : null}
         <Button asChild className="mt-2 w-full">
           <Link href={`/jobs/${job.slug}`}>View Details</Link>
         </Button>

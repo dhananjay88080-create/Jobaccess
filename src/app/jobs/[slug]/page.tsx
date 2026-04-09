@@ -86,9 +86,11 @@ export default async function JobDetailPage({ params }: JobPageProps) {
             <p className="flex items-center gap-2">
               <CalendarClock className="h-4 w-4 text-primary" /> Last Date: {lastDateText}
             </p>
-            <p className="flex items-center gap-2">
-              <IndianRupee className="h-4 w-4 text-primary" /> Salary: {salary}
-            </p>
+            {job.jobType === "private" ? (
+              <p className="flex items-center gap-2">
+                <IndianRupee className="h-4 w-4 text-primary" /> Salary: {salary}
+              </p>
+            ) : null}
           </div>
         </CardHeader>
         <CardContent className="space-y-4">

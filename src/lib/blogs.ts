@@ -2,11 +2,17 @@ import { connectToDatabase } from "@/lib/db";
 import { makeSlug } from "@/lib/slug";
 import { sanitizeText } from "@/lib/utils";
 import { BlogModel } from "@/models/Blog";
+import crypto from "crypto";
 
 interface CreateBlogInput {
   title: string;
   content: string;
   excerpt?: string;
+  sourceType?: "manual" | "rss" | "api";
+  source?: string;
+  sourceUid?: string;
+  status?: "pending" | "published" | "rejected";
+  publishedAt?: Date;
 }
 
 function createExcerpt(content: string, providedExcerpt?: string) {
@@ -17,12 +23,27 @@ function createExcerpt(content: string, providedExcerpt?: string) {
   return sanitizeText(content, 500).slice(0, 220);
 }
 
+function createBlogSourceUid(input: Pick<CreateBlogInput, "title" | "source">) {
+  const key = `${input.source || "Manual Entry"}|${input.title}`.toLowerCase();
+  return crypto.createHash("sha256").update(key).digest("hex");
+}
+
 export async function createBlogPost(input: CreateBlogInput) {
   await connectToDatabase();
 
   const title = sanitizeText(input.title, 180);
   const content = sanitizeText(input.content, 20000);
   const excerpt = createExcerpt(content, input.excerpt);
+  const sourceType = input.sourceType || "manual";
+  const source = sanitizeText(input.source || "Manual Entry", 120);
+  const status = sourceType === "rss" ? "pending" : input.status || "pending";
+  const sourceUid = input.sourceUid || (sourceType === "manual" ? undefined : createBlogSourceUid({ title, source }));
+
+  if (sourceUid) {
+    const existingBySourceUid = await BlogModel.findOne({ sourceUid }).lean();
+    if (existingBySourceUid) return existingBySourceUid;
+  }
+
   const slugBase = makeSlug(title) || `blog-${Date.now()}`;
 
   const slugCollision = await BlogModel.findOne({ slug: slugBase }).lean();
@@ -32,7 +53,12 @@ export async function createBlogPost(input: CreateBlogInput) {
     title,
     slug,
     content,
-    excerpt
+    excerpt,
+    sourceType,
+    source,
+    sourceUid,
+    status,
+    publishedAt: status === "published" ? input.publishedAt || new Date() : undefined
   });
 
   return blog;
@@ -40,8 +66,10 @@ export async function createBlogPost(input: CreateBlogInput) {
 
 export async function getLatestBlogs(limit = 4) {
   await connectToDatabase();
-  return BlogModel.find()
-    .sort({ createdAt: -1 })
+  return BlogModel.find({
+    $or: [{ status: "published" }, { status: { $exists: false } }]
+  })
+    .sort({ publishedAt: -1, createdAt: -1 })
     .limit(limit)
     .lean();
 }
@@ -50,12 +78,16 @@ export async function listBlogs(page = 1, limit = 12) {
   await connectToDatabase();
 
   const [items, total] = await Promise.all([
-    BlogModel.find()
-      .sort({ createdAt: -1 })
+    BlogModel.find({
+      $or: [{ status: "published" }, { status: { $exists: false } }]
+    })
+      .sort({ publishedAt: -1, createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(limit)
       .lean(),
-    BlogModel.countDocuments()
+    BlogModel.countDocuments({
+      $or: [{ status: "published" }, { status: { $exists: false } }]
+    })
   ]);
 
   return {
@@ -71,12 +103,25 @@ export async function listBlogs(page = 1, limit = 12) {
 
 export async function getBlogBySlug(slug: string) {
   await connectToDatabase();
-  return BlogModel.findOne({ slug }).lean();
+  return BlogModel.findOne({
+    slug,
+    $or: [{ status: "published" }, { status: { $exists: false } }]
+  }).lean();
 }
 
-export async function listBlogsForAdmin(limit = 100) {
+export async function listBlogsForAdmin(
+  status?: "pending" | "published" | "rejected",
+  limit = 100
+) {
   await connectToDatabase();
-  return BlogModel.find()
+  const query =
+    status === "published"
+      ? { $or: [{ status: "published" }, { status: { $exists: false } }] }
+      : status
+        ? { status }
+        : {};
+
+  return BlogModel.find(query)
     .sort({ createdAt: -1 })
     .limit(limit)
     .lean();
@@ -96,6 +141,11 @@ export async function updateBlogById(
     slug: string;
     content: string;
     excerpt: string;
+    sourceType: "manual" | "rss" | "api";
+    source: string;
+    sourceUid: string;
+    status: "pending" | "published" | "rejected";
+    publishedAt: Date;
   }> = {};
 
   if (input.title !== undefined) {
@@ -119,7 +169,39 @@ export async function updateBlogById(
     payload.excerpt = createExcerpt(nextContent);
   }
 
+  if (input.sourceType !== undefined) {
+    payload.sourceType = input.sourceType;
+  }
+
+  if (input.source !== undefined) {
+    payload.source = sanitizeText(input.source, 120);
+  }
+
+  if (input.sourceUid !== undefined) {
+    payload.sourceUid = input.sourceUid;
+  }
+
+  if (input.publishedAt !== undefined) {
+    payload.publishedAt = input.publishedAt;
+  }
+
+  if (input.status !== undefined) {
+    payload.status = input.status;
+    if (input.status === "published") {
+      payload.publishedAt = input.publishedAt || new Date();
+    }
+  }
+
   return BlogModel.findByIdAndUpdate(id, payload, { new: true }).lean();
+}
+
+export async function approveBlogById(id: string) {
+  await connectToDatabase();
+  return BlogModel.findByIdAndUpdate(
+    id,
+    { status: "published", publishedAt: new Date() },
+    { new: true }
+  ).lean();
 }
 
 export async function deleteBlogById(id: string) {

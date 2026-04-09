@@ -12,7 +12,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       .limit(5000)
       .select("slug updatedAt")
       .lean(),
-    BlogModel.find()
+    BlogModel.find({
+      $or: [{ status: "published" }, { status: { $exists: false } }]
+    })
       .sort({ updatedAt: -1 })
       .limit(5000)
       .select("slug updatedAt")

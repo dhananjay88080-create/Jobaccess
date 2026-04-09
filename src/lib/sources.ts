@@ -1,4 +1,4 @@
-import { env, rssFeeds } from "@/lib/env";
+import { contentRssFeeds, env, rssFeeds } from "@/lib/env";
 
 export interface SafeFeedSource {
   name: string;
@@ -24,6 +24,11 @@ export interface SafeHtmlSourceConfig {
 // Keep this list to official/public sources with explicit feed access.
 export const SAFE_RSS_SOURCES: SafeFeedSource[] = rssFeeds.map((url, index) => ({
   name: `Configured Feed ${index + 1}`,
+  url
+}));
+
+export const SAFE_CONTENT_RSS_SOURCES: SafeFeedSource[] = contentRssFeeds.map((url, index) => ({
+  name: `Configured Content Feed ${index + 1}`,
   url
 }));
 

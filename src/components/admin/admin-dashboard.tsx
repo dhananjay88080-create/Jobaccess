@@ -36,6 +36,10 @@ interface BlogRecord {
   slug: string;
   excerpt: string;
   content: string;
+  sourceType?: "manual" | "rss" | "api";
+  source?: string;
+  status: "pending" | "published" | "rejected";
+  publishedAt?: string;
   createdAt: string;
 }
 
@@ -61,7 +65,10 @@ type JobFormState = typeof initialForm;
 const initialBlogForm = {
   title: "",
   excerpt: "",
-  content: ""
+  content: "",
+  sourceType: "manual",
+  source: "Manual Entry",
+  status: "pending"
 };
 
 type BlogFormState = typeof initialBlogForm;
@@ -112,9 +119,11 @@ export function AdminDashboard() {
   const [jobs, setJobs] = useState<JobRecord[]>([]);
   const [blogs, setBlogs] = useState<BlogRecord[]>([]);
   const [statusFilter, setStatusFilter] = useState("pending");
+  const [blogStatusFilter, setBlogStatusFilter] = useState<"pending" | "published" | "rejected">("pending");
   const [loading, setLoading] = useState(false);
   const [blogsLoading, setBlogsLoading] = useState(false);
-  const [syncing, setSyncing] = useState(false);
+  const [jobSyncing, setJobSyncing] = useState(false);
+  const [contentSyncing, setContentSyncing] = useState(false);
   const [form, setForm] = useState<JobFormState>(initialForm);
   const [editingJobId, setEditingJobId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<JobFormState>(initialForm);
@@ -149,9 +158,9 @@ export function AdminDashboard() {
     setJobs(data.items || []);
   }
 
-  async function loadBlogs() {
+  async function loadBlogs(nextStatus = blogStatusFilter) {
     setBlogsLoading(true);
-    const response = await fetch("/api/admin/blogs");
+    const response = await fetch(`/api/admin/blogs?status=${nextStatus}`);
     const data = await response.json().catch(() => ({}));
     setBlogsLoading(false);
 
@@ -170,8 +179,9 @@ export function AdminDashboard() {
   }, [statusFilter]);
 
   useEffect(() => {
-    void loadBlogs();
-  }, []);
+    void loadBlogs(blogStatusFilter);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [blogStatusFilter]);
 
   async function onManualAdd(event: FormEvent) {
     event.preventDefault();
@@ -240,7 +250,10 @@ export function AdminDashboard() {
       body: JSON.stringify({
         title: blogForm.title,
         excerpt: blogForm.excerpt?.trim() ? blogForm.excerpt : undefined,
-        content: blogForm.content
+        content: blogForm.content,
+        sourceType: blogForm.sourceType,
+        source: blogForm.source,
+        status: blogForm.status
       })
     });
 
@@ -252,8 +265,12 @@ export function AdminDashboard() {
     }
 
     setBlogForm(initialBlogForm);
-    setMessage("Blog content posted successfully.");
-    void loadBlogs();
+    setMessage(
+      data.blog?.status === "published"
+        ? "Blog content published."
+        : "Blog content saved as pending. Approve from Manage Blogs to publish."
+    );
+    void loadBlogs(blogStatusFilter);
   }
 
   async function onUpdateBlog(event: FormEvent) {
@@ -269,7 +286,10 @@ export function AdminDashboard() {
       body: JSON.stringify({
         title: editBlogForm.title,
         excerpt: editBlogForm.excerpt?.trim() ? editBlogForm.excerpt : undefined,
-        content: editBlogForm.content
+        content: editBlogForm.content,
+        sourceType: editBlogForm.sourceType,
+        source: editBlogForm.source,
+        status: editBlogForm.status
       })
     });
 
@@ -283,7 +303,7 @@ export function AdminDashboard() {
     setEditingBlogId(null);
     setEditBlogForm(initialBlogForm);
     setMessage("Blog updated successfully.");
-    void loadBlogs();
+    void loadBlogs(blogStatusFilter);
   }
 
   async function deleteBlog(id: string) {
@@ -299,7 +319,35 @@ export function AdminDashboard() {
       setEditBlogForm(initialBlogForm);
     }
     setMessage("Blog deleted.");
-    void loadBlogs();
+    void loadBlogs(blogStatusFilter);
+  }
+
+  async function approveBlog(id: string) {
+    const response = await fetch(`/api/admin/blogs/${id}/approve`, { method: "POST" });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      setError(data.message || "Blog approve failed");
+      return;
+    }
+
+    setMessage("Blog approved and published.");
+    void loadBlogs(blogStatusFilter);
+  }
+
+  async function rejectBlog(id: string) {
+    const response = await fetch(`/api/admin/blogs/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "rejected" })
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      setError(data.message || "Blog reject failed");
+      return;
+    }
+
+    setMessage("Blog marked as rejected.");
+    void loadBlogs(blogStatusFilter);
   }
 
   async function approveJob(id: string) {
@@ -362,15 +410,15 @@ export function AdminDashboard() {
     void loadJobs(statusFilter);
   }
 
-  async function triggerRSSSync() {
+  async function triggerJobRSSSync() {
     setMessage(null);
     setError(null);
-    setSyncing(true);
+    setJobSyncing(true);
     const response = await fetch("/api/admin/rss-sync", { method: "POST" });
     const data = await response.json().catch(() => ({}));
-    setSyncing(false);
+    setJobSyncing(false);
     if (!response.ok) {
-      setError(data.message || "Source sync failed");
+      setError(data.message || "Job source sync failed");
       return;
     }
     const totals = data.summary?.totals || {};
@@ -379,16 +427,47 @@ export function AdminDashboard() {
     const skipped = totals.skipped ?? 0;
     const errors: Array<{ source?: string; reason?: string }> = totals.errors || [];
 
-    setMessage(`Sync complete. Processed: ${processed}, Imported: ${created}, Skipped: ${skipped}, Errors: ${errors.length}`);
+    setMessage(`Job RSS sync complete. Processed: ${processed}, Imported: ${created}, Skipped: ${skipped}, Errors: ${errors.length}`);
 
     if (errors.length > 0) {
       const firstFew = errors
         .slice(0, 3)
         .map((item) => `${item.source || "source"} - ${item.reason || "unknown error"}`)
         .join(" | ");
-      setError(`Some sources failed: ${firstFew}`);
+      setError(`Some job sources failed: ${firstFew}`);
     }
     void loadJobs(statusFilter);
+  }
+
+  async function triggerContentRSSSync() {
+    setMessage(null);
+    setError(null);
+    setContentSyncing(true);
+    const response = await fetch("/api/admin/content-rss-sync", { method: "POST" });
+    const data = await response.json().catch(() => ({}));
+    setContentSyncing(false);
+
+    if (!response.ok) {
+      setError(data.message || "Content RSS sync failed");
+      return;
+    }
+
+    const processed = data.summary?.processed ?? 0;
+    const created = data.summary?.created ?? 0;
+    const skipped = data.summary?.skipped ?? 0;
+    const errors: Array<{ source?: string; reason?: string }> = data.summary?.errors || [];
+
+    setMessage(`Content RSS sync complete. Processed: ${processed}, Imported: ${created}, Skipped: ${skipped}, Errors: ${errors.length}`);
+
+    if (errors.length > 0) {
+      const firstFew = errors
+        .slice(0, 3)
+        .map((item) => `${item.source || "source"} - ${item.reason || "unknown error"}`)
+        .join(" | ");
+      setError(`Some content sources failed: ${firstFew}`);
+    }
+
+    void loadBlogs();
   }
 
   async function logout() {
@@ -403,8 +482,11 @@ export function AdminDashboard() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold">JobAccess India - Admin Dashboard</h1>
         <div className="flex gap-2">
-          <Button variant="secondary" onClick={triggerRSSSync} disabled={syncing}>
-            {syncing ? "Syncing..." : "Run Source Sync"}
+          <Button variant="secondary" onClick={triggerJobRSSSync} disabled={jobSyncing}>
+            {jobSyncing ? "Syncing Jobs..." : "Run Job RSS Sync"}
+          </Button>
+          <Button variant="secondary" onClick={triggerContentRSSSync} disabled={contentSyncing}>
+            {contentSyncing ? "Syncing Content..." : "Run Content RSS Sync"}
           </Button>
           <Button variant="outline" onClick={logout}>
             Logout
@@ -445,6 +527,49 @@ export function AdminDashboard() {
                 onChange={(event) => setBlogForm((old) => ({ ...old, excerpt: event.target.value }))}
                 rows={3}
               />
+            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Content Source Type</Label>
+                <select
+                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                  value={blogForm.sourceType}
+                  onChange={(event) =>
+                    setBlogForm((old) => ({
+                      ...old,
+                      sourceType: event.target.value as BlogFormState["sourceType"]
+                    }))
+                  }
+                >
+                  <option value="manual">Manual</option>
+                  <option value="rss">RSS</option>
+                  <option value="api">API</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label>Source Label</Label>
+                <Input
+                  value={blogForm.source}
+                  onChange={(event) => setBlogForm((old) => ({ ...old, source: event.target.value }))}
+                  required
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Status</Label>
+              <select
+                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                value={blogForm.status}
+                onChange={(event) =>
+                  setBlogForm((old) => ({
+                    ...old,
+                    status: event.target.value as BlogFormState["status"]
+                  }))
+                }
+              >
+                <option value="pending">Save as pending</option>
+                <option value="published">Publish now</option>
+              </select>
             </div>
             <div className="space-y-2">
               <Label>Content</Label>
@@ -494,6 +619,50 @@ export function AdminDashboard() {
                   rows={3}
                 />
               </div>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Content Source Type</Label>
+                  <select
+                    className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                    value={editBlogForm.sourceType}
+                    onChange={(event) =>
+                      setEditBlogForm((old) => ({
+                        ...old,
+                        sourceType: event.target.value as BlogFormState["sourceType"]
+                      }))
+                    }
+                  >
+                    <option value="manual">Manual</option>
+                    <option value="rss">RSS</option>
+                    <option value="api">API</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Source Label</Label>
+                  <Input
+                    value={editBlogForm.source}
+                    onChange={(event) => setEditBlogForm((old) => ({ ...old, source: event.target.value }))}
+                    required
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Status</Label>
+                <select
+                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                  value={editBlogForm.status}
+                  onChange={(event) =>
+                    setEditBlogForm((old) => ({
+                      ...old,
+                      status: event.target.value as BlogFormState["status"]
+                    }))
+                  }
+                >
+                  <option value="pending">Pending</option>
+                  <option value="published">Published</option>
+                  <option value="rejected">Rejected</option>
+                </select>
+              </div>
               <div className="space-y-2">
                 <Label>Content</Label>
                 <Textarea
@@ -512,8 +681,21 @@ export function AdminDashboard() {
       ) : null}
 
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0">
           <CardTitle>Manage Blogs</CardTitle>
+          <div className="flex flex-wrap gap-2">
+            {(["pending", "published", "rejected"] as const).map((status) => (
+              <Button
+                key={status}
+                type="button"
+                variant={blogStatusFilter === status ? "default" : "outline"}
+                size="sm"
+                onClick={() => setBlogStatusFilter(status)}
+              >
+                {status === "published" ? "uploaded" : status}
+              </Button>
+            ))}
+          </div>
         </CardHeader>
         <CardContent>
           {blogsLoading ? (
@@ -523,6 +705,8 @@ export function AdminDashboard() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Title</TableHead>
+                  <TableHead>Source</TableHead>
+                  <TableHead>Status</TableHead>
                   <TableHead>Created</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
@@ -530,7 +714,7 @@ export function AdminDashboard() {
               <TableBody>
                 {blogs.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={3} className="text-muted-foreground">
+                    <TableCell colSpan={5} className="text-muted-foreground">
                       No blogs found.
                     </TableCell>
                   </TableRow>
@@ -540,6 +724,15 @@ export function AdminDashboard() {
                       <TableCell>
                         <p className="font-medium">{blog.title}</p>
                         <p className="text-xs text-muted-foreground">/{blog.slug}</p>
+                      </TableCell>
+                      <TableCell>
+                        <p className="capitalize">{blog.sourceType || "manual"}</p>
+                        <p className="text-xs text-muted-foreground">{blog.source || "Manual Entry"}</p>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={blog.status === "published" ? "success" : "outline"}>
+                          {blog.status === "published" ? "uploaded" : blog.status || "uploaded"}
+                        </Badge>
                       </TableCell>
                       <TableCell>{new Date(blog.createdAt).toLocaleDateString("en-IN")}</TableCell>
                       <TableCell className="space-x-2">
@@ -551,12 +744,25 @@ export function AdminDashboard() {
                             setEditBlogForm({
                               title: blog.title,
                               excerpt: blog.excerpt || "",
-                              content: blog.content
+                              content: blog.content,
+                              sourceType: blog.sourceType || "manual",
+                              source: blog.source || "Manual Entry",
+                              status: blog.status || "published"
                             });
                           }}
                         >
                           Edit
                         </Button>
+                        {blog.status !== "published" ? (
+                          <Button size="sm" onClick={() => approveBlog(blog._id)}>
+                            Approve
+                          </Button>
+                        ) : null}
+                        {blog.status !== "rejected" ? (
+                          <Button size="sm" variant="outline" onClick={() => rejectBlog(blog._id)}>
+                            Reject
+                          </Button>
+                        ) : null}
                         <Button size="sm" variant="destructive" onClick={() => deleteBlog(blog._id)}>
                           Delete
                         </Button>
