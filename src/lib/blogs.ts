@@ -208,3 +208,8 @@ export async function deleteBlogById(id: string) {
   await connectToDatabase();
   return BlogModel.findByIdAndDelete(id).lean();
 }
+
+export async function deleteBlogsByIds(ids: string[]) {
+  await connectToDatabase();
+  return BlogModel.deleteMany({ _id: { $in: ids } });
+}

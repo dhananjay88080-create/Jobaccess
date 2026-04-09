@@ -133,6 +133,7 @@ export function AdminDashboard() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selectedJobIds, setSelectedJobIds] = useState<string[]>([]);
+  const [selectedBlogIds, setSelectedBlogIds] = useState<string[]>([]);
 
   function formatApiFieldErrors(errors: unknown) {
     const fieldErrors = (errors as { fieldErrors?: Record<string, unknown> } | undefined)?.fieldErrors;
@@ -179,6 +180,7 @@ export function AdminDashboard() {
   }, [statusFilter]);
 
   useEffect(() => {
+    setSelectedBlogIds([]);
     void loadBlogs(blogStatusFilter);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [blogStatusFilter]);
@@ -318,6 +320,7 @@ export function AdminDashboard() {
       setEditingBlogId(null);
       setEditBlogForm(initialBlogForm);
     }
+    setSelectedBlogIds((old) => old.filter((item) => item !== id));
     setMessage("Blog deleted.");
     void loadBlogs(blogStatusFilter);
   }
@@ -347,6 +350,46 @@ export function AdminDashboard() {
     }
 
     setMessage("Blog marked as rejected.");
+    void loadBlogs(blogStatusFilter);
+  }
+
+  function toggleBlogSelection(id: string, checked: boolean) {
+    setSelectedBlogIds((old) => {
+      if (checked) {
+        if (old.includes(id)) return old;
+        return [...old, id];
+      }
+      return old.filter((item) => item !== id);
+    });
+  }
+
+  function toggleAllVisibleBlogs(checked: boolean) {
+    if (!checked) {
+      setSelectedBlogIds([]);
+      return;
+    }
+    setSelectedBlogIds(blogs.map((blog) => blog._id));
+  }
+
+  async function deleteSelectedBlogs() {
+    if (selectedBlogIds.length === 0) return;
+
+    setMessage(null);
+    setError(null);
+
+    const response = await fetch("/api/admin/blogs/bulk-delete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids: selectedBlogIds })
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      setError(data.message || "Blog bulk delete failed");
+      return;
+    }
+
+    setMessage(`Deleted ${data.deleted ?? 0} blogs.`);
+    setSelectedBlogIds([]);
     void loadBlogs(blogStatusFilter);
   }
 
@@ -475,6 +518,7 @@ export function AdminDashboard() {
     window.location.href = "/admin/login";
   }
 
+  const allVisibleBlogsSelected = blogs.length > 0 && blogs.every((blog) => selectedBlogIds.includes(blog._id));
   const allVisibleSelected = jobs.length > 0 && jobs.every((job) => selectedJobIds.includes(job._id));
 
   return (
@@ -695,6 +739,11 @@ export function AdminDashboard() {
                 {status === "published" ? "uploaded" : status}
               </Button>
             ))}
+            {selectedBlogIds.length > 0 ? (
+              <Button type="button" variant="destructive" onClick={deleteSelectedBlogs}>
+                Delete Selected ({selectedBlogIds.length})
+              </Button>
+            ) : null}
           </div>
         </CardHeader>
         <CardContent>
@@ -704,6 +753,14 @@ export function AdminDashboard() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-12">
+                    <input
+                      type="checkbox"
+                      aria-label="Select all blogs"
+                      checked={allVisibleBlogsSelected}
+                      onChange={(e) => toggleAllVisibleBlogs(e.target.checked)}
+                    />
+                  </TableHead>
                   <TableHead>Title</TableHead>
                   <TableHead>Source</TableHead>
                   <TableHead>Status</TableHead>
@@ -714,13 +771,21 @@ export function AdminDashboard() {
               <TableBody>
                 {blogs.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-muted-foreground">
+                    <TableCell colSpan={6} className="text-muted-foreground">
                       No blogs found.
                     </TableCell>
                   </TableRow>
                 ) : (
                   blogs.map((blog) => (
                     <TableRow key={blog._id}>
+                      <TableCell>
+                        <input
+                          type="checkbox"
+                          aria-label={`Select ${blog.title}`}
+                          checked={selectedBlogIds.includes(blog._id)}
+                          onChange={(e) => toggleBlogSelection(blog._id, e.target.checked)}
+                        />
+                      </TableCell>
                       <TableCell>
                         <p className="font-medium">{blog.title}</p>
                         <p className="text-xs text-muted-foreground">/{blog.slug}</p>
