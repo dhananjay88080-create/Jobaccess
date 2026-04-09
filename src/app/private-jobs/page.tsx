@@ -35,7 +35,7 @@ export default async function PrivateJobsPage({ searchParams }: PrivateJobsPageP
         <p className="mt-2 text-sm text-muted-foreground">Latest private-sector opportunities collected in one place.</p>
       </section>
 
-      <JobsFilters searchParams={searchParams} showJobType={false} />
+      <JobsFilters searchParams={searchParams} />
 
       <section className="space-y-5">
         <div className="flex items-center justify-between">

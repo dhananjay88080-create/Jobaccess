@@ -1,12 +1,12 @@
+import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 interface JobsFiltersProps {
   searchParams: Record<string, string | string[] | undefined>;
-  showJobType?: boolean;
 }
 
-export function JobsFilters({ searchParams, showJobType = true }: JobsFiltersProps) {
+export function JobsFilters({ searchParams }: JobsFiltersProps) {
   const current = (key: string) => {
     const value = searchParams[key];
     if (!value) return "";
@@ -14,16 +14,12 @@ export function JobsFilters({ searchParams, showJobType = true }: JobsFiltersPro
   };
 
   return (
-    <form className="grid gap-3 rounded-xl border bg-card/85 p-4 shadow-sm sm:grid-cols-2 lg:grid-cols-3">
-      <Input type="text" name="q" placeholder="Search jobs..." defaultValue={current("q")} />
-      {showJobType ? (
-        <select name="jobType" defaultValue={current("jobType")} className="h-10 rounded-md border border-input bg-background px-3 text-sm">
-          <option value="">All types</option>
-          <option value="government">Govt Jobs</option>
-          <option value="private">Private Jobs</option>
-        </select>
-      ) : null}
-      <Button type="submit">Apply filters</Button>
+    <form className="grid gap-3 rounded-xl border bg-card/85 p-4 shadow-sm sm:grid-cols-[1fr_auto]">
+      <div className="relative">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground sm:hidden" />
+        <Input className="pl-9 sm:pl-3" type="text" name="q" placeholder="Search jobs..." defaultValue={current("q")} />
+      </div>
+      <Button type="submit">Search</Button>
     </form>
   );
 }

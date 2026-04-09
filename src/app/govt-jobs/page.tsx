@@ -35,7 +35,7 @@ export default async function GovtJobsPage({ searchParams }: GovtJobsPageProps) 
         <p className="mt-2 text-sm text-muted-foreground">Latest verified government job postings.</p>
       </section>
 
-      <JobsFilters searchParams={searchParams} showJobType={false} />
+      <JobsFilters searchParams={searchParams} />
 
       <section className="space-y-5">
         <div className="flex items-center justify-between">
