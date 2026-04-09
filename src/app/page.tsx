@@ -7,6 +7,7 @@ import { TrendingJobs } from "@/components/jobs/trending-jobs";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { listJobs, getTrendingJobs } from "@/lib/jobs";
+import { getLatestBlogs } from "@/lib/blogs";
 import { adsense } from "@/lib/adsense";
 import type { JobsFilter } from "@/lib/jobs";
 
@@ -22,21 +23,15 @@ export default async function HomePage({ searchParams }: HomePageProps) {
     page: Number.isNaN(page) || page < 1 ? 1 : page,
     limit: 12,
     jobType,
-    category: typeof searchParams.category === "string" ? searchParams.category : undefined,
-    state: typeof searchParams.state === "string" ? searchParams.state : undefined,
-    qualification: typeof searchParams.qualification === "string" ? searchParams.qualification : undefined,
     q: typeof searchParams.q === "string" ? searchParams.q : undefined,
     status: "published" as const
   };
 
-  const [{ items, pagination }, trendingJobs] = await Promise.all([listJobs(query), getTrendingJobs(6)]);
+  const [{ items, pagination }, trendingJobs, blogs] = await Promise.all([listJobs(query), getTrendingJobs(6), getLatestBlogs(4)]);
 
   const buildPageLink = (nextPage: number) => {
     const params = new URLSearchParams();
     if (query.jobType) params.set("jobType", query.jobType);
-    if (query.category) params.set("category", query.category);
-    if (query.state) params.set("state", query.state);
-    if (query.qualification) params.set("qualification", query.qualification);
     if (query.q) params.set("q", query.q);
     params.set("page", String(nextPage));
     return `/?${params.toString()}`;
@@ -44,20 +39,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
 
   return (
     <div className="space-y-8">
-      <section className="rounded-2xl border bg-card/80 p-6 shadow-sm">
-        <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-          <div className="space-y-3">
-            <p className="inline-flex rounded-full bg-primary/15 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-primary">
-              Legal source only
-            </p>
-            <h1 className="font-[var(--font-heading)] text-3xl font-bold md:text-4xl">Job Access India</h1>
-            <p className="max-w-2xl text-sm font-medium text-primary md:text-base">All Jobs. One Platform</p>
-            <p className="max-w-2xl text-sm text-muted-foreground md:text-base">Verified job updates from safe sources and admin-reviewed postings.</p>
-            <SubscribeForm />
-          </div>
-          <AdSlot slot={adsense.slots.top} className="h-full min-h-28" format="horizontal" />
-        </div>
-      </section>
+      <JobsFilters searchParams={searchParams} />
 
       <section className="rounded-xl border bg-card/85 p-4">
         <div className="flex flex-wrap items-center gap-3">
@@ -68,16 +50,8 @@ export default async function HomePage({ searchParams }: HomePageProps) {
           <Button asChild variant="outline" size="sm">
             <Link href="/private-jobs">Private Jobs</Link>
           </Button>
-          <Button asChild variant="outline" size="sm">
-            <Link href="/results">Results</Link>
-          </Button>
-          <Button asChild variant="outline" size="sm">
-            <Link href="/admit-cards">Admit Cards</Link>
-          </Button>
         </div>
       </section>
-
-      <JobsFilters searchParams={searchParams} />
 
       <section className="grid gap-6 lg:grid-cols-[1fr_300px]">
         <div className="space-y-5">
@@ -150,6 +124,51 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             }))}
           />
           <AdSlot slot={adsense.slots.sidebar} className="min-h-56" format="rectangle" />
+        </div>
+      </section>
+
+      <section className="space-y-4 rounded-2xl border bg-card/80 p-6 shadow-sm">
+        <div className="flex items-center justify-between">
+          <h2 className="font-[var(--font-heading)] text-2xl font-semibold">Latest Blogs</h2>
+          <Button asChild variant="outline" size="sm">
+            <Link href="/blogs">View all</Link>
+          </Button>
+        </div>
+
+        {blogs.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No blog content posted yet. Add content from the admin dashboard.</p>
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2">
+            {blogs.map((blog) => (
+              <Card key={String(blog._id)} className="border-border/80 bg-card/95">
+                <CardHeader className="space-y-2">
+                  <CardTitle className="line-clamp-2 text-lg">{blog.title}</CardTitle>
+                  <p className="text-xs text-muted-foreground">{new Date(blog.createdAt).toLocaleDateString("en-IN")}</p>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <p className="line-clamp-5 whitespace-pre-line text-sm text-muted-foreground">{blog.excerpt || blog.content}</p>
+                  <Button asChild variant="secondary" size="sm">
+                    <Link href={`/blogs/${blog.slug}`}>Read More</Link>
+                  </Button>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="rounded-2xl border bg-card/80 p-6 shadow-sm">
+        <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+          <div className="space-y-3">
+            <p className="inline-flex rounded-full bg-primary/15 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-primary">
+              Legal source only
+            </p>
+            <h1 className="font-[var(--font-heading)] text-3xl font-bold md:text-4xl">Job Access India</h1>
+            <p className="max-w-2xl text-sm font-medium text-primary md:text-base">All Jobs. One Platform</p>
+            <p className="max-w-2xl text-sm text-muted-foreground md:text-base">Verified job updates from safe sources and admin-reviewed postings.</p>
+            <SubscribeForm />
+          </div>
+          <AdSlot slot={adsense.slots.top} className="h-full min-h-28" format="horizontal" />
         </div>
       </section>
     </div>

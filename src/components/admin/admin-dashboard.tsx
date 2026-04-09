@@ -30,6 +30,15 @@ interface JobRecord {
   createdAt: string;
 }
 
+interface BlogRecord {
+  _id: string;
+  title: string;
+  slug: string;
+  excerpt: string;
+  content: string;
+  createdAt: string;
+}
+
 const initialForm = {
   title: "",
   description: "",
@@ -48,6 +57,14 @@ const initialForm = {
 };
 
 type JobFormState = typeof initialForm;
+
+const initialBlogForm = {
+  title: "",
+  excerpt: "",
+  content: ""
+};
+
+type BlogFormState = typeof initialBlogForm;
 
 function toOptionalNumber(value: string) {
   if (!value || !value.trim()) return undefined;
@@ -93,12 +110,17 @@ function toEditableForm(job: JobRecord): JobFormState {
 
 export function AdminDashboard() {
   const [jobs, setJobs] = useState<JobRecord[]>([]);
+  const [blogs, setBlogs] = useState<BlogRecord[]>([]);
   const [statusFilter, setStatusFilter] = useState("pending");
   const [loading, setLoading] = useState(false);
+  const [blogsLoading, setBlogsLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [form, setForm] = useState<JobFormState>(initialForm);
   const [editingJobId, setEditingJobId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<JobFormState>(initialForm);
+  const [blogForm, setBlogForm] = useState<BlogFormState>(initialBlogForm);
+  const [editingBlogId, setEditingBlogId] = useState<string | null>(null);
+  const [editBlogForm, setEditBlogForm] = useState<BlogFormState>(initialBlogForm);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selectedJobIds, setSelectedJobIds] = useState<string[]>([]);
@@ -127,11 +149,29 @@ export function AdminDashboard() {
     setJobs(data.items || []);
   }
 
+  async function loadBlogs() {
+    setBlogsLoading(true);
+    const response = await fetch("/api/admin/blogs");
+    const data = await response.json().catch(() => ({}));
+    setBlogsLoading(false);
+
+    if (!response.ok) {
+      setError(data.message || "Could not load blogs");
+      return;
+    }
+
+    setBlogs(data.items || []);
+  }
+
   useEffect(() => {
     setSelectedJobIds([]);
     void loadJobs(statusFilter);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusFilter]);
+
+  useEffect(() => {
+    void loadBlogs();
+  }, []);
 
   async function onManualAdd(event: FormEvent) {
     event.preventDefault();
@@ -187,6 +227,79 @@ export function AdminDashboard() {
     setEditingJobId(null);
     setEditForm(initialForm);
     void loadJobs(statusFilter);
+  }
+
+  async function onAddBlog(event: FormEvent) {
+    event.preventDefault();
+    setMessage(null);
+    setError(null);
+
+    const response = await fetch("/api/admin/add-blog", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: blogForm.title,
+        excerpt: blogForm.excerpt?.trim() ? blogForm.excerpt : undefined,
+        content: blogForm.content
+      })
+    });
+
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const details = formatApiFieldErrors(data.errors);
+      setError(details ? `${data.message || "Failed to publish blog"} - ${details}` : data.message || "Failed to publish blog");
+      return;
+    }
+
+    setBlogForm(initialBlogForm);
+    setMessage("Blog content posted successfully.");
+    void loadBlogs();
+  }
+
+  async function onUpdateBlog(event: FormEvent) {
+    event.preventDefault();
+    if (!editingBlogId) return;
+
+    setMessage(null);
+    setError(null);
+
+    const response = await fetch(`/api/admin/blogs/${editingBlogId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: editBlogForm.title,
+        excerpt: editBlogForm.excerpt?.trim() ? editBlogForm.excerpt : undefined,
+        content: editBlogForm.content
+      })
+    });
+
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const details = formatApiFieldErrors(data.errors);
+      setError(details ? `${data.message || "Blog update failed"} - ${details}` : data.message || "Blog update failed");
+      return;
+    }
+
+    setEditingBlogId(null);
+    setEditBlogForm(initialBlogForm);
+    setMessage("Blog updated successfully.");
+    void loadBlogs();
+  }
+
+  async function deleteBlog(id: string) {
+    const response = await fetch(`/api/admin/blogs/${id}`, { method: "DELETE" });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      setError(data.message || "Blog delete failed");
+      return;
+    }
+
+    if (editingBlogId === id) {
+      setEditingBlogId(null);
+      setEditBlogForm(initialBlogForm);
+    }
+    setMessage("Blog deleted.");
+    void loadBlogs();
   }
 
   async function approveJob(id: string) {
@@ -308,6 +421,152 @@ export function AdminDashboard() {
         </CardHeader>
         <CardContent>
           <JobForm form={form} setForm={setForm} onSubmit={onManualAdd} submitLabel="Save Job" />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Post Blog Content</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form className="grid gap-4" onSubmit={onAddBlog}>
+            <div className="space-y-2">
+              <Label>Blog Title</Label>
+              <Input
+                value={blogForm.title}
+                onChange={(event) => setBlogForm((old) => ({ ...old, title: event.target.value }))}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Short Excerpt (optional)</Label>
+              <Textarea
+                value={blogForm.excerpt}
+                onChange={(event) => setBlogForm((old) => ({ ...old, excerpt: event.target.value }))}
+                rows={3}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Content</Label>
+              <Textarea
+                value={blogForm.content}
+                onChange={(event) => setBlogForm((old) => ({ ...old, content: event.target.value }))}
+                rows={8}
+                required
+              />
+            </div>
+            <div>
+              <Button type="submit">Publish Blog</Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+
+      {editingBlogId ? (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0">
+            <CardTitle>Edit Blog</CardTitle>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setEditingBlogId(null);
+                setEditBlogForm(initialBlogForm);
+              }}
+            >
+              Cancel
+            </Button>
+          </CardHeader>
+          <CardContent>
+            <form className="grid gap-4" onSubmit={onUpdateBlog}>
+              <div className="space-y-2">
+                <Label>Blog Title</Label>
+                <Input
+                  value={editBlogForm.title}
+                  onChange={(event) => setEditBlogForm((old) => ({ ...old, title: event.target.value }))}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Short Excerpt (optional)</Label>
+                <Textarea
+                  value={editBlogForm.excerpt}
+                  onChange={(event) => setEditBlogForm((old) => ({ ...old, excerpt: event.target.value }))}
+                  rows={3}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Content</Label>
+                <Textarea
+                  value={editBlogForm.content}
+                  onChange={(event) => setEditBlogForm((old) => ({ ...old, content: event.target.value }))}
+                  rows={8}
+                  required
+                />
+              </div>
+              <div>
+                <Button type="submit">Update Blog</Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Manage Blogs</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {blogsLoading ? (
+            <p className="text-sm text-muted-foreground">Loading blogs...</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Title</TableHead>
+                  <TableHead>Created</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {blogs.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={3} className="text-muted-foreground">
+                      No blogs found.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  blogs.map((blog) => (
+                    <TableRow key={blog._id}>
+                      <TableCell>
+                        <p className="font-medium">{blog.title}</p>
+                        <p className="text-xs text-muted-foreground">/{blog.slug}</p>
+                      </TableCell>
+                      <TableCell>{new Date(blog.createdAt).toLocaleDateString("en-IN")}</TableCell>
+                      <TableCell className="space-x-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setEditingBlogId(blog._id);
+                            setEditBlogForm({
+                              title: blog.title,
+                              excerpt: blog.excerpt || "",
+                              content: blog.content
+                            });
+                          }}
+                        >
+                          Edit
+                        </Button>
+                        <Button size="sm" variant="destructive" onClick={() => deleteBlog(blog._id)}>
+                          Delete
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
 

@@ -96,3 +96,20 @@ export const emailSubscriptionSchema = z.object({
   email: z.string().email(),
   alertPreference: z.enum(["all", "government", "private"]).default("all")
 });
+
+export const addBlogSchema = z.object({
+  title: z.string().trim().min(6).max(180),
+  content: z.string().trim().min(30).max(20000),
+  excerpt: z.string().trim().max(500).optional()
+});
+
+export const updateBlogSchema = addBlogSchema
+  .partial()
+  .superRefine((value, ctx) => {
+    if (Object.keys(value).length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "At least one field is required"
+      });
+    }
+  });

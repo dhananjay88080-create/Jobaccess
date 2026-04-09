@@ -1,4 +1,3 @@
-import { JOB_CATEGORIES, INDIAN_STATES, QUALIFICATIONS } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -15,7 +14,7 @@ export function JobsFilters({ searchParams, showJobType = true }: JobsFiltersPro
   };
 
   return (
-    <form className="grid gap-3 rounded-xl border bg-card/85 p-4 shadow-sm sm:grid-cols-2 lg:grid-cols-6">
+    <form className="grid gap-3 rounded-xl border bg-card/85 p-4 shadow-sm sm:grid-cols-2 lg:grid-cols-3">
       <Input type="text" name="q" placeholder="Search jobs..." defaultValue={current("q")} />
       {showJobType ? (
         <select name="jobType" defaultValue={current("jobType")} className="h-10 rounded-md border border-input bg-background px-3 text-sm">
@@ -24,38 +23,6 @@ export function JobsFilters({ searchParams, showJobType = true }: JobsFiltersPro
           <option value="private">Private Jobs</option>
         </select>
       ) : null}
-      <select
-        name="category"
-        defaultValue={current("category")}
-        className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-      >
-        <option value="">All categories</option>
-        {JOB_CATEGORIES.map((value) => (
-          <option key={value} value={value}>
-            {value}
-          </option>
-        ))}
-      </select>
-      <select name="state" defaultValue={current("state")} className="h-10 rounded-md border border-input bg-background px-3 text-sm">
-        <option value="">All states</option>
-        {INDIAN_STATES.map((value) => (
-          <option key={value} value={value}>
-            {value}
-          </option>
-        ))}
-      </select>
-      <select
-        name="qualification"
-        defaultValue={current("qualification")}
-        className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-      >
-        <option value="">All qualifications</option>
-        {QUALIFICATIONS.map((value) => (
-          <option key={value} value={value}>
-            {value}
-          </option>
-        ))}
-      </select>
       <Button type="submit">Apply filters</Button>
     </form>
   );

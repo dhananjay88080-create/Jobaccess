@@ -14,9 +14,6 @@ export default async function PrivateJobsPage({ searchParams }: PrivateJobsPageP
   const query = {
     page: Number.isNaN(page) || page < 1 ? 1 : page,
     limit: 12,
-    category: typeof searchParams.category === "string" ? searchParams.category : undefined,
-    state: typeof searchParams.state === "string" ? searchParams.state : undefined,
-    qualification: typeof searchParams.qualification === "string" ? searchParams.qualification : undefined,
     q: typeof searchParams.q === "string" ? searchParams.q : undefined,
     status: "published" as const,
     jobType: "private" as const
@@ -26,9 +23,6 @@ export default async function PrivateJobsPage({ searchParams }: PrivateJobsPageP
 
   const buildPageLink = (nextPage: number) => {
     const params = new URLSearchParams();
-    if (query.category) params.set("category", query.category);
-    if (query.state) params.set("state", query.state);
-    if (query.qualification) params.set("qualification", query.qualification);
     if (query.q) params.set("q", query.q);
     params.set("page", String(nextPage));
     return `/private-jobs?${params.toString()}`;

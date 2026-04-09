@@ -8,8 +8,7 @@ export function Header() {
     { href: "/", label: "Home" },
     { href: "/govt-jobs", label: "Govt Jobs" },
     { href: "/private-jobs", label: "Private Jobs" },
-    { href: "/results", label: "Results" },
-    { href: "/admit-cards", label: "Admit Cards" },
+    { href: "/blogs", label: "Blogs" },
     { href: "/about-us", label: "About Us" },
     { href: "/contact-us", label: "Contact Us" }
   ];
