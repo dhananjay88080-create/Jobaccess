@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { hasAdSenseConfig } from "@/lib/adsense";
 
@@ -17,17 +17,28 @@ declare global {
 }
 
 export function AdSlot({ slot, className, format = "auto" }: AdSlotProps) {
+  const adRef = useRef<HTMLModElement | null>(null);
+
   useEffect(() => {
     if (!slot || !hasAdSenseConfig()) return;
 
     try {
+      const adElement = adRef.current;
+      if (!adElement) return;
+
+      const alreadyLoaded =
+        adElement.getAttribute("data-adsbygoogle-status") === "done" ||
+        adElement.dataset.adLoaded === "true";
+      if (alreadyLoaded) return;
+
       const adsQueue = window.adsbygoogle || [];
       adsQueue.push({});
       window.adsbygoogle = adsQueue;
+      adElement.dataset.adLoaded = "true";
     } catch {
       // Ignore ad rendering errors in development.
     }
-  }, [slot]);
+  }, [slot, format]);
 
   if (!slot || !hasAdSenseConfig()) {
     return (
@@ -44,6 +55,7 @@ export function AdSlot({ slot, className, format = "auto" }: AdSlotProps) {
 
   return (
     <ins
+      ref={adRef}
       className={cn("adsbygoogle block rounded-lg border bg-card", className)}
       style={{ display: "block" }}
       data-ad-client={process.env.NEXT_PUBLIC_ADSENSE_CLIENT_ID}
