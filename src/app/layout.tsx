@@ -6,6 +6,7 @@ import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { ThemeProvider } from "@/components/theme-provider";
 import { hasAdSenseConfig } from "@/lib/adsense";
+import { Analytics } from '@vercel/analytics/next';
 
 const headingFont = Space_Grotesk({
   subsets: ["latin"],
@@ -62,6 +63,7 @@ export default function RootLayout({
           <Header />
           <main className="container mt-8">{children}</main>
           <Footer />
+          <Analytics />
         </ThemeProvider>
       </body>
     </html>
